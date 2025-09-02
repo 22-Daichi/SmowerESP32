@@ -38,7 +38,7 @@ uint8_t data;
 
 volatile bool triggered = true;
 
-void IRAM_ATTR handleInterrupt()
+/* void IRAM_ATTR handleInterrupt()
 {
   currentTime = millis();
   if (currentTime - lastInterruptTime > 50)
@@ -47,7 +47,7 @@ void IRAM_ATTR handleInterrupt()
     digitalWrite(outputPin, LOW);
     lastInterruptTime = currentTime;
   }
-}
+} */
 
 void pinModeSetup()
 {
@@ -76,7 +76,7 @@ void setup()
   Serial.begin(115200);
   Serial1.begin(115200, SERIAL_8N1, rxPin, txPin); // RX=16, TX=17
   pwmSetup();
-  attachInterrupt(digitalPinToInterrupt(inputPin), handleInterrupt, FALLING);
+  // attachInterrupt(digitalPinToInterrupt(inputPin), handleInterrupt, FALLING);
 }
 
 void WheelPwrOn()
@@ -169,8 +169,18 @@ void setWheelPwr()
   Serial.println(rightWheelPwr); // for debug */
 }
 
+void emergency()
+{
+  triggered = true;
+  digitalWrite(outputPin, LOW);
+}
+
 void loop()
 {
+  if (digitalRead(inputPin) == 0) // スイッチが押された
+  {
+    emergency();
+  }
   if (triggered && digitalRead(inputPin) == HIGH) // スイッチ押されてない
   {
     triggered = false;
@@ -179,6 +189,7 @@ void loop()
   if (triggered == 1)
   {
     // Serial.println("EmergencyButtonPressed!");
+    WheelPwrOff();
   }
   if (Serial1.available())
   {
