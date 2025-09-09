@@ -1,21 +1,26 @@
 #include <Arduino.h>
+#include <ESP32Servo.h>
 
 #define rightPwmCh 0
 #define leftPwmCh 1
-
-volatile unsigned long lastInterruptTime = 0;
-volatile unsigned long currentTime = 0;
-
-const int rightWheelPwrPin = 5;
-const int leftWheelPwrPin = 16;
-const int rightWheelDirPin = 17;
-const int leftWheelDirPin = 4;
 
 const int rxPin = 22;
 const int txPin = 23;
 
 const int inputPin = 15; // 入力ピン（pullvdown）
 const int outputPin = 2; // 出力ピン
+
+Servo servo;         // サーボオブジェクトの定義
+int servoPin = 21;   // サーボの制御ピン]
+int servoAngle = 90; // 最初は正面向き
+int servoDirection = 1;
+int minUs = 500;  // 最小のパルス幅
+int maxUs = 2400; // 最大のパルス幅
+
+const int rightWheelPwrPin = 5;
+const int leftWheelPwrPin = 16;
+const int rightWheelDirPin = 17;
+const int leftWheelDirPin = 4;
 
 int rightWheelPwr = 0;
 int leftWheelPwr = 0;
@@ -38,17 +43,6 @@ uint8_t data;
 
 volatile bool triggered = true;
 
-/* void IRAM_ATTR handleInterrupt()
-{
-  currentTime = millis();
-  if (currentTime - lastInterruptTime > 50)
-  { // 50ms以上の間隔のみ有効
-    triggered = true;
-    digitalWrite(outputPin, LOW);
-    lastInterruptTime = currentTime;
-  }
-} */
-
 void pinModeSetup()
 {
   pinMode(rightWheelPwrPin, OUTPUT);
@@ -70,13 +64,37 @@ void pwmSetup()
   ledcAttachPin(leftWheelPwrPin, leftPwmCh);   // PWMピンにチャンネル1を指定
 }
 
+void servoSetup()
+{
+  ESP32PWM::allocateTimer(0);
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+  servo.setPeriodHertz(50);             // 50HzのPWMを出すという設定
+  servo.attach(servoPin, minUs, maxUs); // servoオブジェクトに定数を設定していく。
+}
 void setup()
 {
   pinModeSetup();
   Serial.begin(115200);
   Serial1.begin(115200, SERIAL_8N1, rxPin, txPin); // RX=16, TX=17
   pwmSetup();
+  servoSetup();
   // attachInterrupt(digitalPinToInterrupt(inputPin), handleInterrupt, FALLING);
+}
+
+void servoDrive()
+{
+  if (servoAngle == 10)
+  {
+    servoDirection = 1;
+  }
+  else if (servoAngle == 170)
+  {
+    servoDirection = -1;
+  }
+  servoAngle += servoDirection;
+  servo.write(servoAngle);
 }
 
 void WheelPwrOn()
@@ -173,6 +191,7 @@ void emergency()
 {
   triggered = true;
   digitalWrite(outputPin, LOW);
+  WheelPwrOff();
 }
 
 void loop()
@@ -185,11 +204,6 @@ void loop()
   {
     triggered = false;
     digitalWrite(outputPin, HIGH);
-  }
-  if (triggered == 1)
-  {
-    // Serial.println("EmergencyButtonPressed!");
-    WheelPwrOff();
   }
   if (Serial1.available())
   {
@@ -207,5 +221,6 @@ void loop()
     setWheelPwr();
     WheelPwrOn();
   }
+  servoDrive();
   delay(50);
 }
