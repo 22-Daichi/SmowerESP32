@@ -1,8 +1,10 @@
 #include <Arduino.h>
 #include <ESP32Servo.h>
 
-#define rightPwmCh 0
-#define leftPwmCh 1
+#define rightPwmCh 2
+#define leftPwmCh 3
+// pwmのch0,1は使えない
+// servoのせい
 
 const int rxPin = 22;
 const int txPin = 23;
@@ -58,9 +60,9 @@ void pinModeSetup()
 
 void pwmSetup()
 {
-  ledcSetup(0, 12800, 8);                      // チャンネル0、キャリア周波数1kHz、8ビットレンジ
+  ledcSetup(rightPwmCh, 12800, 8);             // チャンネル0、キャリア周波数1kHz、8ビットレンジ
   ledcAttachPin(rightWheelPwrPin, rightPwmCh); // PWMピンにチャンネル0を指定
-  ledcSetup(1, 12800, 8);                      // チャンネル1、キャリア周波数1kHz、16ビットレンジ
+  ledcSetup(leftPwmCh, 12800, 8);              // チャンネル1、キャリア周波数1kHz、16ビットレンジ
   ledcAttachPin(leftWheelPwrPin, leftPwmCh);   // PWMピンにチャンネル1を指定
 }
 
