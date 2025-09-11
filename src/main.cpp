@@ -87,11 +87,11 @@ void setup()
 
 void servoDrive()
 {
-  if (servoAngle == 10)
+  if (servoAngle == 70)
   {
     servoDirection = 1;
   }
-  else if (servoAngle == 170)
+  else if (servoAngle == 130)
   {
     servoDirection = -1;
   }
