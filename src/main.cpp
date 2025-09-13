@@ -3,6 +3,7 @@
 
 #define rightPwmCh 2
 #define leftPwmCh 3
+#define bladeMotorCh 4
 // pwmのch0,1は使えない
 // servoのせい
 
@@ -18,6 +19,8 @@ int servoAngle = 90; // 最初は正面向き
 int servoDirection = 1;
 int minUs = 500;  // 最小のパルス幅
 int maxUs = 2400; // 最大のパルス幅
+
+const int bladeMotorPin = 13;
 
 const int rightWheelPwrPin = 5;
 const int leftWheelPwrPin = 16;
@@ -38,6 +41,9 @@ bool cir = 0;
 bool cross = 0;
 bool square = 0;
 
+int8_t l2 = 0;
+int8_t r2 = 0;
+
 int maxPwr = 250;
 
 int t = 0;
@@ -51,6 +57,7 @@ void pinModeSetup()
   pinMode(rightWheelDirPin, OUTPUT);
   pinMode(leftWheelPwrPin, OUTPUT);
   pinMode(leftWheelDirPin, OUTPUT);
+  pinMode(bladeMotorPin, OUTPUT);
   digitalWrite(rightWheelPwrPin, LOW);
   digitalWrite(leftWheelPwrPin, LOW);
   pinMode(inputPin, INPUT_PULLDOWN); // プルアップ入力
@@ -64,6 +71,8 @@ void pwmSetup()
   ledcAttachPin(rightWheelPwrPin, rightPwmCh); // PWMピンにチャンネル0を指定
   ledcSetup(leftPwmCh, 12800, 8);              // チャンネル1、キャリア周波数1kHz、16ビットレンジ
   ledcAttachPin(leftWheelPwrPin, leftPwmCh);   // PWMピンにチャンネル1を指定
+  ledcSetup(bladeMotorCh, 12800, 8);           // チャンネル1、キャリア周波数1kHz、16ビットレンジ
+  ledcAttachPin(bladeMotorPin, bladeMotorCh);  // PWMピンにチャンネル1を指定
 }
 
 void servoSetup()
@@ -83,6 +92,10 @@ void setup()
   pwmSetup();
   servoSetup();
   // attachInterrupt(digitalPinToInterrupt(inputPin), handleInterrupt, FALLING);
+}
+void bladeMotorOn()
+{
+  ledcWrite(bladeMotorCh, l2);
 }
 
 void servoDrive()
@@ -207,10 +220,12 @@ void loop()
     triggered = false;
     digitalWrite(outputPin, HIGH);
   }
-  if (Serial1.available())
+  if (Serial1.available() >= 3)
   {
     // Serial.println("DataReceived");
     data = Serial1.read();
+    l2 = Serial1.read();
+    r2 = Serial1.read();
     up = (data >> 7) & 1;
     down = (data >> 6) & 1;
     left = (data >> 5) & 1;
@@ -222,6 +237,7 @@ void loop()
     getWheelPwr();
     setWheelPwr();
     WheelPwrOn();
+    bladeMotorOn();
   }
   servoDrive();
   delay(50);
