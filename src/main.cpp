@@ -45,11 +45,22 @@ int8_t l2 = 0;
 int8_t r2 = 0;
 
 int maxPwr = 250;
+int state = 0;
 
 int t = 0;
+uint8_t readByte;
+uint8_t buffer[3];
 uint8_t data;
 
 volatile bool triggered = true;
+
+void clearSerialBuffer(HardwareSerial &serial)
+{
+  while (serial.available())
+  {
+    serial.read();
+  }
+}
 
 void pinModeSetup()
 {
@@ -220,24 +231,31 @@ void loop()
     triggered = false;
     digitalWrite(outputPin, HIGH);
   }
-  if (Serial1.available() >= 3)
+  if (Serial1.available())
   {
-    // Serial.println("DataReceived");
-    data = Serial1.read();
-    l2 = Serial1.read();
-    r2 = Serial1.read();
-    up = (data >> 7) & 1;
-    down = (data >> 6) & 1;
-    left = (data >> 5) & 1;
-    right = (data >> 4) & 1;
-    tri = (data >> 3) & 1;
-    cross = (data >> 2) & 1;
-    square = (data >> 1) & 1;
-    cir = (data >> 0) & 1;
-    getWheelPwr();
-    setWheelPwr();
-    WheelPwrOn();
-    bladeMotorOn();
+    readByte = Serial1.read();
+    if (readByte == 0xAA && Serial1.available() >= 3)
+    { // スタートバイト検出
+      data = Serial1.read();
+      l2 = Serial1.read();
+      r2 = Serial1.read();
+      up = (data >> 7) & 1;
+      down = (data >> 6) & 1;
+      left = (data >> 5) & 1;
+      right = (data >> 4) & 1;
+      tri = (data >> 3) & 1;
+      cross = (data >> 2) & 1;
+      square = (data >> 1) & 1;
+      cir = (data >> 0) & 1;
+      getWheelPwr();
+      setWheelPwr();
+      WheelPwrOn();
+      bladeMotorOn();
+    }
+    else
+    {
+      clearSerialBuffer(Serial1);
+    }
   }
   servoDrive();
   delay(50);
