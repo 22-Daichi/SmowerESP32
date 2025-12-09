@@ -4,6 +4,9 @@
 #define rightPwmCh 2
 #define leftPwmCh 3
 #define bladeMotorCh 4
+#define slideMotorCh1 5
+#define slideMotorCh2 6
+
 // pwmのch0,1は使えない
 // servoのせい
 
@@ -13,6 +16,9 @@ const int txPin = 23;
 const int inputPin = 15; // 入力ピン（pullvdown）
 const int outputPin = 2; // 出力ピン
 
+const int leftSwitchPin = 35;  // yellow wire
+const int rightSwitchPin = 34; // red wire
+
 Servo servo;         // サーボオブジェクトの定義
 int servoPin = 21;   // サーボの制御ピン]
 int servoAngle = 90; // 最初は正面向き
@@ -21,6 +27,10 @@ int minUs = 500;  // 最小のパルス幅
 int maxUs = 2400; // 最大のパルス幅
 
 const int bladeMotorPin = 13;
+const int slideMotorPin1 = 19;
+const int slideMotorPin2 = 18;
+
+int motorB_direction = 1; // 0:後退 1:前進
 
 const int rightWheelPwrPin = 5;
 const int leftWheelPwrPin = 16;
@@ -41,8 +51,8 @@ bool cir = 0;
 bool cross = 0;
 bool square = 0;
 
-int8_t l2 = 0;
-int8_t r2 = 0;
+int l2 = 0;
+int r2 = 0;
 
 int maxPwr = 250;
 int state = 0;
@@ -69,8 +79,12 @@ void pinModeSetup()
   pinMode(leftWheelPwrPin, OUTPUT);
   pinMode(leftWheelDirPin, OUTPUT);
   pinMode(bladeMotorPin, OUTPUT);
+  pinMode(slideMotorPin1, OUTPUT);
+  pinMode(slideMotorPin2, OUTPUT);
   digitalWrite(rightWheelPwrPin, LOW);
   digitalWrite(leftWheelPwrPin, LOW);
+  pinMode(leftSwitchPin, INPUT);
+  pinMode(rightSwitchPin, INPUT);
   pinMode(inputPin, INPUT_PULLDOWN); // プルアップ入力
   pinMode(outputPin, OUTPUT);        // 出力モード
   digitalWrite(outputPin, LOW);      // 初期はLOW
@@ -78,12 +92,16 @@ void pinModeSetup()
 
 void pwmSetup()
 {
-  ledcSetup(rightPwmCh, 12800, 8);             // チャンネル0、キャリア周波数1kHz、8ビットレンジ
-  ledcAttachPin(rightWheelPwrPin, rightPwmCh); // PWMピンにチャンネル0を指定
-  ledcSetup(leftPwmCh, 12800, 8);              // チャンネル1、キャリア周波数1kHz、16ビットレンジ
-  ledcAttachPin(leftWheelPwrPin, leftPwmCh);   // PWMピンにチャンネル1を指定
-  ledcSetup(bladeMotorCh, 12800, 8);           // チャンネル1、キャリア周波数1kHz、16ビットレンジ
-  ledcAttachPin(bladeMotorPin, bladeMotorCh);  // PWMピンにチャンネル1を指定
+  ledcSetup(rightPwmCh, 12800, 8);              // チャンネル0、キャリア周波数1kHz、8ビットレンジ
+  ledcAttachPin(rightWheelPwrPin, rightPwmCh);  // PWMピンにチャンネル0を指定
+  ledcSetup(leftPwmCh, 12800, 8);               // チャンネル1、キャリア周波数1kHz、16ビットレンジ
+  ledcAttachPin(leftWheelPwrPin, leftPwmCh);    // PWMピンにチャンネル1を指定
+  ledcSetup(bladeMotorCh, 12800, 8);            // チャンネル1、キャリア周波数1kHz、16ビットレンジ
+  ledcAttachPin(bladeMotorPin, bladeMotorCh);   // PWMピンにチャンネル1を指定
+  ledcSetup(slideMotorCh1, 12800, 8);           // チャンネル1、キャリア周波数1kHz、16ビットレンジ
+  ledcAttachPin(slideMotorPin1, slideMotorCh1); // PWMピン
+  ledcSetup(slideMotorCh2, 12800, 8);           //
+  ledcAttachPin(slideMotorPin2, slideMotorCh2); // PWMピ
 }
 
 void servoSetup()
@@ -95,6 +113,7 @@ void servoSetup()
   servo.setPeriodHertz(50);             // 50HzのPWMを出すという設定
   servo.attach(servoPin, minUs, maxUs); // servoオブジェクトに定数を設定していく。
 }
+
 void setup()
 {
   pinModeSetup();
@@ -104,8 +123,49 @@ void setup()
   servoSetup();
   // attachInterrupt(digitalPinToInterrupt(inputPin), handleInterrupt, FALLING);
 }
+
+void slideMotorSetDirection()
+{
+  if (digitalRead(leftSwitchPin == HIGH) && digitalRead(rightSwitchPin) == LOW) // 右スイッチが押されたら
+  {
+    if (motorB_direction == 1) // 前進中なら
+    {
+      motorB_direction = 0;
+    }
+  }
+  if (digitalRead(rightSwitchPin) == HIGH && digitalRead(leftSwitchPin) == LOW) // 左スイッチが押されたら
+  {
+    if (motorB_direction == 0) // 後退中なら
+    {
+      motorB_direction = 1;
+    }
+  }
+}
+
+void slideMotorOn()
+{
+  if (r2 < 0)
+  {
+    r2 += 256;
+  }
+  if (motorB_direction == 1) // 前進
+  {
+    ledcWrite(slideMotorCh1, r2);
+    ledcWrite(slideMotorCh2, 0);
+  }
+  else // 後退
+  {
+    ledcWrite(slideMotorCh1, 0);
+    ledcWrite(slideMotorCh2, r2);
+  }
+}
+
 void bladeMotorOn()
 {
+  if (l2 < 0)
+  {
+    l2 += 256;
+  }
   ledcWrite(bladeMotorCh, l2);
 }
 
@@ -222,6 +282,7 @@ void emergency()
 
 void loop()
 {
+  slideMotorSetDirection();
   if (digitalRead(inputPin) == 0) // スイッチが押された
   {
     emergency();
@@ -251,6 +312,7 @@ void loop()
       setWheelPwr();
       WheelPwrOn();
       bladeMotorOn();
+      slideMotorOn();
     }
     else
     {
@@ -258,5 +320,7 @@ void loop()
     }
   }
   servoDrive();
+  Serial.print(l2);
+  Serial.println(r2);
   delay(50);
 }
