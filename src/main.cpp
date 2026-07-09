@@ -3,9 +3,9 @@
 
 #define rightPwmCh 2
 #define leftPwmCh 3
-#define bladeMotorCh 4
-#define slideMotorCh1 5
-#define slideMotorCh2 6
+#define bladeMotorCh 4 // 草刈りモーター二つのパワーは一緒でいい
+#define liftMotorCh1 5
+#define liftMotorCh2 6
 
 // pwmのch0,1は使えない
 // servoのせい
@@ -13,11 +13,25 @@
 const int rxPin = 22;
 const int txPin = 23;
 
-const int inputPin = 15; // 入力ピン（pullvdown）
-const int outputPin = 2; // 出力ピン
+const int relayInputPin = 15; // 入力ピン（pullvdown）
+const int relayOutputPin = 2; // 出力ピン
 
 const int leftSwitchPin = 35;  // yellow wire
 const int rightSwitchPin = 34; // red wire
+
+const int bladeMotorPin01 = 13;
+const int bladeMotorPin02 = 12;
+const int liftMotorPin1 = 19;
+const int liftMotorPin2 = 18;
+
+const int rightWheelPwrPin = 5;
+const int leftWheelPwrPin = 16;
+const int rightWheelDirPin = 17;
+const int leftWheelDirPin = 4;
+
+const int stepperMotorStepPin = 27;
+const int stepperMotorDirPin = 14;
+const int stepperMotorSleepPin = 26;
 
 Servo servo;         // サーボオブジェクトの定義
 int servoPin = 21;   // サーボの制御ピン]
@@ -26,20 +40,7 @@ int servoDirection = 1;
 int minUs = 500;  // 最小のパルス幅
 int maxUs = 2400; // 最大のパルス幅
 
-const int bladeMotorPin = 13;
-const int slideMotorPin1 = 19;
-const int slideMotorPin2 = 18;
-
 int motorB_direction = 1; // 0:後退 1:前進
-
-const int rightWheelPwrPin = 5;
-const int leftWheelPwrPin = 16;
-const int rightWheelDirPin = 17;
-const int leftWheelDirPin = 4;
-
-const int stepperMotorStepPin = 14;
-const int stepperMotorDirPin = 27;
-const int stepperMotorSleepPin = 26;
 
 int rightWheelPwr = 0;
 int leftWheelPwr = 0;
@@ -82,30 +83,41 @@ void pinModeSetup()
   pinMode(rightWheelDirPin, OUTPUT);
   pinMode(leftWheelPwrPin, OUTPUT);
   pinMode(leftWheelDirPin, OUTPUT);
-  pinMode(bladeMotorPin, OUTPUT);
-  pinMode(slideMotorPin1, OUTPUT);
-  pinMode(slideMotorPin2, OUTPUT);
+
+  pinMode(bladeMotorPin01, OUTPUT);
+  pinMode(bladeMotorPin02, OUTPUT);
+
+  pinMode(stepperMotorStepPin, OUTPUT);
+  pinMode(stepperMotorDirPin, OUTPUT);
+  pinMode(stepperMotorSleepPin, OUTPUT);
+
+  pinMode(liftMotorPin1, OUTPUT);
+  pinMode(liftMotorPin2, OUTPUT);
+
   digitalWrite(rightWheelPwrPin, LOW);
   digitalWrite(leftWheelPwrPin, LOW);
   pinMode(leftSwitchPin, INPUT);
   pinMode(rightSwitchPin, INPUT);
-  pinMode(inputPin, INPUT_PULLDOWN); // プルアップ入力
-  pinMode(outputPin, OUTPUT);        // 出力モード
-  digitalWrite(outputPin, LOW);      // 初期はLOW
+  pinMode(relayInputPin, INPUT_PULLDOWN); // プルアップ入力
+  pinMode(relayOutputPin, OUTPUT);        // 出力モード
+  digitalWrite(relayOutputPin, LOW);      // 初期はLOW
 }
 
 void pwmSetup()
 {
-  ledcSetup(rightPwmCh, 12800, 8);              // チャンネル0、キャリア周波数1kHz、8ビットレンジ
-  ledcAttachPin(rightWheelPwrPin, rightPwmCh);  // PWMピンにチャンネル0を指定
-  ledcSetup(leftPwmCh, 12800, 8);               // チャンネル1、キャリア周波数1kHz、16ビットレンジ
-  ledcAttachPin(leftWheelPwrPin, leftPwmCh);    // PWMピンにチャンネル1を指定
+  ledcSetup(rightPwmCh, 12800, 8);             // チャンネル0、キャリア周波数1kHz、8ビットレンジ
+  ledcAttachPin(rightWheelPwrPin, rightPwmCh); // PWMピンにチャンネル0を指定
+  ledcSetup(leftPwmCh, 12800, 8);              // チャンネル1、キャリア周波数1kHz、16ビットレンジ
+  ledcAttachPin(leftWheelPwrPin, leftPwmCh);   // PWMピンにチャンネル1を指定
+
   ledcSetup(bladeMotorCh, 12800, 8);            // チャンネル1、キャリア周波数1kHz、16ビットレンジ
-  ledcAttachPin(bladeMotorPin, bladeMotorCh);   // PWMピンにチャンネル1を指定
-  ledcSetup(slideMotorCh1, 12800, 8);           // チャンネル1、キャリア周波数1kHz、16ビットレンジ
-  ledcAttachPin(slideMotorPin1, slideMotorCh1); // PWMピン
-  ledcSetup(slideMotorCh2, 12800, 8);           //
-  ledcAttachPin(slideMotorPin2, slideMotorCh2); // PWMピ
+  ledcAttachPin(bladeMotorPin01, bladeMotorCh); // PWMピンにチャンネル1を指定
+  ledcAttachPin(bladeMotorPin02, bladeMotorCh); // PWMピンにチャンネル1を指定
+
+  ledcSetup(liftMotorCh1, 12800, 8);          // チャンネル1、キャリア周波数1kHz、16ビットレンジ
+  ledcAttachPin(liftMotorPin1, liftMotorCh1); //
+  ledcSetup(liftMotorCh2, 12800, 8);          // チャンネル1、キャリア周波数1kHz、16ビットレンジ
+  ledcAttachPin(liftMotorPin2, liftMotorCh2);
 }
 
 void servoSetup()
@@ -125,7 +137,7 @@ void setup()
   Serial1.begin(115200, SERIAL_8N1, rxPin, txPin); // RX=16, TX=17
   pwmSetup();
   servoSetup();
-  // attachInterrupt(digitalPinToInterrupt(inputPin), handleInterrupt, FALLING);
+  // attachInterrupt(digitalPinToInterrupt(relayInputPin), handleInterrupt, FALLING);
 }
 
 void slideMotorSetDirection()
@@ -148,9 +160,9 @@ void slideMotorSetDirection()
 
 void slideMotorOn()
 {
-  if (r2 < 0)
+  /* if (r2 < 0)
   {
-    r2 += 256;
+    r2 += 256; // これはわからん。けしてもいいと信じている。jetsonからくるr2の値を確認。
   }
   if (motorB_direction == 1) // 前進
   {
@@ -161,14 +173,14 @@ void slideMotorOn()
   {
     ledcWrite(slideMotorCh1, 0);
     ledcWrite(slideMotorCh2, r2);
-  }
+  } */
 }
 
 void bladeMotorOn()
 {
   if (l2 < 0)
   {
-    l2 += 256;
+    l2 += 256; // これはわからん。けしてもいいと信じている。jetsonからくるl2の値を確認。
   }
   ledcWrite(bladeMotorCh, l2);
 }
@@ -280,21 +292,21 @@ void setWheelPwr()
 void emergency()
 {
   triggered = true;
-  digitalWrite(outputPin, LOW);
+  digitalWrite(relayOutputPin, LOW);
   WheelPwrOff();
 }
 
 void loop()
 {
   slideMotorSetDirection();
-  if (digitalRead(inputPin) == 0) // スイッチが押された
+  if (digitalRead(relayInputPin) == 0) // スイッチが押された
   {
     emergency();
   }
-  if (triggered && digitalRead(inputPin) == HIGH) // スイッチ押されてない
+  if (triggered && digitalRead(relayInputPin) == HIGH) // スイッチ押されてない
   {
     triggered = false;
-    digitalWrite(outputPin, HIGH);
+    digitalWrite(relayOutputPin, HIGH);
   }
   if (Serial1.available())
   {
