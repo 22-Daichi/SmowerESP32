@@ -37,6 +37,10 @@ const int leftWheelPwrPin = 16;
 const int rightWheelDirPin = 17;
 const int leftWheelDirPin = 4;
 
+const int stepperMotorStepPin = 14;
+const int stepperMotorDirPin = 27;
+const int stepperMotorSleepPin = 26;
+
 int rightWheelPwr = 0;
 int leftWheelPwr = 0;
 bool rightWheelDir = 0;
