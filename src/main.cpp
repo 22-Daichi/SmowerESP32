@@ -231,13 +231,13 @@ void getWheelPwr()
     rightWheelPwr -= 5;
     leftWheelPwr -= 5;
   }
-  if (cir == 1)
+  if (right == 1)
   {
     rightWheelPwr -= 5;
     leftWheelPwr += 5;
   }
 
-  if (square == 1)
+  if (left == 1)
   {
     rightWheelPwr += 5;
     leftWheelPwr -= 5;
