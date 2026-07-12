@@ -40,8 +40,6 @@ int servoDirection = 1;
 int minUs = 500;  // 最小のパルス幅
 int maxUs = 2400; // 最大のパルス幅
 
-int motorB_direction = 1; // 0:後退 1:前進
-
 int rightWheelPwr = 0;
 int leftWheelPwr = 0;
 bool rightWheelDir = 0;
@@ -69,6 +67,14 @@ uint8_t data;
 
 volatile bool triggered = true;
 
+unsigned long stepHalfPeriod = 3000; // ステッピングモータの半周期時間（マイクロ秒）
+unsigned long previousStepTime = 0;  // 最後にステッピングモータをステップさせた時間（マイクロ秒）
+unsigned long currentTime = 0;       // 現在の時間（マイクロ秒）
+bool stepPinState = false;           // ステッピングモータのステップピンの状態
+
+bool slideMotorDirection = true; // true: 前進, false: 後退
+bool slideMotorEnabled = false;  // スライドモータの状態（ON/OFF）
+
 void clearSerialBuffer(HardwareSerial &serial)
 {
   while (serial.available())
@@ -79,7 +85,7 @@ void clearSerialBuffer(HardwareSerial &serial)
 
 void pinModeSetup()
 {
-  pinMode(rightWheelPwrPin, OUTPUT);
+  pinMode(rightWheelPwrPin, OUTPUT); // 右車輪のPWMピンを出力モードに設定
   pinMode(rightWheelDirPin, OUTPUT);
   pinMode(leftWheelPwrPin, OUTPUT);
   pinMode(leftWheelDirPin, OUTPUT);
@@ -89,6 +95,7 @@ void pinModeSetup()
 
   pinMode(stepperMotorStepPin, OUTPUT);
   pinMode(stepperMotorDirPin, OUTPUT);
+  digitalWrite(stepperMotorDirPin, HIGH); // 初期状態を設定
   pinMode(stepperMotorSleepPin, OUTPUT);
 
   pinMode(liftMotorPin1, OUTPUT);
@@ -134,67 +141,108 @@ void setup()
 {
   pinModeSetup();
   Serial.begin(115200);
-  Serial1.begin(115200, SERIAL_8N1, rxPin, txPin); // RX=16, TX=17
+  Serial1.begin(115200, SERIAL_8N1, rxPin, txPin); // シリアル通信の初期化
   pwmSetup();
   servoSetup();
   // attachInterrupt(digitalPinToInterrupt(relayInputPin), handleInterrupt, FALLING);
 }
 
+void liftMotorOn()
+{
+  if (cir == 1) // 上昇
+  {
+    ledcWrite(liftMotorCh1, 0);
+    ledcWrite(liftMotorCh2, 200);
+  }
+  else if (square == 1) // 下降
+  {
+    ledcWrite(liftMotorCh1, 200);
+    ledcWrite(liftMotorCh2, 0);
+  }
+  else
+  {
+    ledcWrite(liftMotorCh1, 0);
+    ledcWrite(liftMotorCh2, 0);
+  }
+}
+
 void slideMotorSetDirection()
 {
-  if (digitalRead(leftSwitchPin == HIGH) && digitalRead(rightSwitchPin) == LOW) // 右スイッチが押されたら
+  if (digitalRead(leftSwitchPin) == HIGH && digitalRead(rightSwitchPin) == LOW) // 右スイッチが押されたら
   {
-    if (motorB_direction == 1) // 前進中なら
+    if (slideMotorDirection == 1) // 前進中なら
     {
-      motorB_direction = 0;
+      slideMotorDirection = 0;
+      digitalWrite(stepperMotorDirPin, slideMotorDirection); // モータの回転方向を設定
     }
   }
   if (digitalRead(rightSwitchPin) == HIGH && digitalRead(leftSwitchPin) == LOW) // 左スイッチが押されたら
   {
-    if (motorB_direction == 0) // 後退中なら
+    if (slideMotorDirection == 0) // 後退中なら
     {
-      motorB_direction = 1;
+      slideMotorDirection = 1;
+      digitalWrite(stepperMotorDirPin, slideMotorDirection); // モータの回転方向を設定
     }
   }
 }
 
 void slideMotorOn()
 {
-  /* if (r2 < 0)
+  if (l2 > 0)
   {
-    r2 += 256; // これはわからん。けしてもいいと信じている。jetsonからくるr2の値を確認。
+    slideMotorEnabled = true; // スライドモータを有効にする
   }
-  if (motorB_direction == 1) // 前進
+  else
   {
-    ledcWrite(slideMotorCh1, r2);
-    ledcWrite(slideMotorCh2, 0);
+    slideMotorEnabled = false; // スライドモータを無効にする
   }
-  else // 後退
+  digitalWrite(stepperMotorSleepPin, slideMotorEnabled ? HIGH : LOW); // スリープモードの制御
+}
+
+void slideMotorPulseUpdate()
+{
+  if (!slideMotorEnabled)
   {
-    ledcWrite(slideMotorCh1, 0);
-    ledcWrite(slideMotorCh2, r2);
-  } */
+    stepPinState = false;
+    digitalWrite(stepperMotorStepPin, LOW);
+    digitalWrite(stepperMotorSleepPin, LOW); // スリープモードにする
+    return;
+  }
+  currentTime = micros();
+  if ((unsigned long)(currentTime - previousStepTime) >= stepHalfPeriod)
+  {
+    previousStepTime = currentTime;
+    stepPinState = !stepPinState; // ステップピンの状態を反転
+    digitalWrite(stepperMotorStepPin, stepPinState);
+  }
 }
 
 void bladeMotorOn()
 {
-  if (l2 < 0)
-  {
-    l2 += 256; // これはわからん。けしてもいいと信じている。jetsonからくるl2の値を確認。
-  }
-  ledcWrite(bladeMotorCh, l2);
+  ledcWrite(bladeMotorCh, r2);
 }
 
 void servoDrive()
 {
-  if (servoAngle == 70)
+  static unsigned long previousServoTime = 0;
+  unsigned long now = millis();
+
+  if (now - previousServoTime < 50)
+  {
+    return;
+  }
+
+  previousServoTime = now;
+
+  if (servoAngle <= 70)
   {
     servoDirection = 1;
   }
-  else if (servoAngle == 130)
+  else if (servoAngle >= 130)
   {
     servoDirection = -1;
   }
+
   servoAngle += servoDirection;
   servo.write(servoAngle);
 }
@@ -294,49 +342,94 @@ void emergency()
   triggered = true;
   digitalWrite(relayOutputPin, LOW);
   WheelPwrOff();
+  slideMotorEnabled = false;
+  l2 = 0;
+  r2 = 0;
+  ledcWrite(bladeMotorCh, 0);
+  ledcWrite(liftMotorCh1, 0);
+  ledcWrite(liftMotorCh2, 0);
+  clearSerialBuffer(Serial1);
+}
+
+void receiveControllerData()
+{
+  bool frameReceived = false;
+
+  while (Serial1.available() >= 4)
+  {
+    readByte = Serial1.read();
+
+    if (readByte != 0xAA)
+    {
+      continue;
+    }
+
+    data = Serial1.read();
+    l2 = Serial1.read();
+    r2 = Serial1.read();
+
+    up = (data >> 7) & 1;
+    down = (data >> 6) & 1;
+    left = (data >> 5) & 1;
+    right = (data >> 4) & 1;
+    tri = (data >> 3) & 1;
+    cross = (data >> 2) & 1;
+    square = (data >> 1) & 1;
+    cir = data & 1;
+
+    frameReceived = true;
+  }
+
+  // 今回、新しい正常フレームがなければ何もしない
+  if (!frameReceived)
+  {
+    return;
+  }
+
+  // 複数フレームあった場合、最後の値に対して1回だけ実行
+  getWheelPwr();
+  setWheelPwr();
+
+  WheelPwrOn();
+  bladeMotorOn();
+  liftMotorOn();
+  slideMotorOn();
+}
+
+void debugPrint()
+
+{
+  static unsigned long previousPrintTime = 0;
+  unsigned long now = millis();
+
+  if (now - previousPrintTime >= 100)
+  {
+    previousPrintTime = now;
+
+    Serial.print("l2: ");
+    Serial.print(l2);
+    Serial.print(", r2: ");
+    Serial.println(r2);
+  }
 }
 
 void loop()
 {
-  slideMotorSetDirection();
   if (digitalRead(relayInputPin) == 0) // スイッチが押された
   {
     emergency();
   }
   if (triggered && digitalRead(relayInputPin) == HIGH) // スイッチ押されてない
   {
+    emergency(); // 緊急停止時の処理を一度実行して安全状態にする
     triggered = false;
-    digitalWrite(relayOutputPin, HIGH);
+    digitalWrite(relayOutputPin, HIGH); // 緊急停止解除
   }
-  if (Serial1.available())
-  {
-    readByte = Serial1.read();
-    if (readByte == 0xAA && Serial1.available() >= 3)
-    { // スタートバイト検出
-      data = Serial1.read();
-      l2 = Serial1.read();
-      r2 = Serial1.read();
-      up = (data >> 7) & 1;
-      down = (data >> 6) & 1;
-      left = (data >> 5) & 1;
-      right = (data >> 4) & 1;
-      tri = (data >> 3) & 1;
-      cross = (data >> 2) & 1;
-      square = (data >> 1) & 1;
-      cir = (data >> 0) & 1;
-      getWheelPwr();
-      setWheelPwr();
-      WheelPwrOn();
-      bladeMotorOn();
-      slideMotorOn();
-    }
-    else
-    {
-      clearSerialBuffer(Serial1);
-    }
-  }
+  receiveControllerData();
+
+  slideMotorSetDirection();
+  slideMotorPulseUpdate();
+
   servoDrive();
-  Serial.print(l2);
-  Serial.println(r2);
-  delay(50);
+  debugPrint();
 }
