@@ -297,14 +297,40 @@ void getWheelPwr()
   }
   if (right == 1)
   {
-    rightWheelPwr -= 5;
-    leftWheelPwr += 5;
+    if (rightWheelPwr * leftWheelPwr > 0) // 右車輪と左車輪の回転方向が同じ場合、右車輪のパワーを減らし、左車輪のパワーを増やして右折
+    {
+      rightWheelPwr -= 5;
+      leftWheelPwr += 5;
+    }
+    else if (rightWheelPwr < 0)
+    {                     // 後退中は左が0右がマイナスになる
+      leftWheelPwr = 0;   // 念のため
+      rightWheelPwr -= 5; // 左は0のまま、右車輪のパワーを増やして信地旋回
+    }
+    else
+    {
+      rightWheelPwr = 0; // 念のため
+      leftWheelPwr += 5; // 左は0のまま、右車輪のパワーを増やして信地旋回
+    }
   }
 
   if (left == 1)
   {
-    rightWheelPwr += 5;
-    leftWheelPwr -= 5;
+    if (rightWheelPwr * leftWheelPwr > 0) // 右車輪と左車輪の回転方向が同じ場合、右車輪のパワーを増やし、左車輪のパワーを減らして左折
+    {
+      rightWheelPwr += 5;
+      leftWheelPwr -= 5;
+    }
+    else if (leftWheelPwr < 0)
+    {                    // 後退中は右が0左がマイナスになる
+      rightWheelPwr = 0; // 念のため
+      leftWheelPwr -= 5; // 右車輪と左車輪の回転方向が逆の場合、右車輪のパワーを増やして信地旋回
+    }
+    else
+    {
+      leftWheelPwr = 0;   // 念のため
+      rightWheelPwr += 5; // 右車輪と左車輪の回転方向が逆の場合、右車輪のパワーを増やして信地旋回
+    }
   }
   if (cross == 1)
   {
