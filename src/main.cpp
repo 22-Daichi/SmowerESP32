@@ -1,5 +1,9 @@
 #include <Arduino.h>
+
+#include <Wire.h>
 #include <ESP32Servo.h>
+#include <Adafruit_INA260.h>
+#include "Adafruit_INA3221.h"
 
 #define rightPwmCh 2
 #define leftPwmCh 3
@@ -12,6 +16,13 @@
 
 const int rxPin = 22;
 const int txPin = 23;
+
+const int SDAPin = 25;
+const int SCLPin = 33;
+Adafruit_INA260 ina260 = Adafruit_INA260();
+Adafruit_INA3221 ina3221;
+
+uint32_t sequenceNumber = 0;
 
 const int relayInputPin = 15; // 入力ピン（pullvdown）
 const int relayOutputPin = 2; // 出力ピン
@@ -137,6 +148,122 @@ void servoSetup()
   servo.attach(servoPin, minUs, maxUs); // servoオブジェクトに定数を設定していく。
 }
 
+void currentSensorSetup()
+{
+  Wire.begin(SDAPin, SCLPin);
+  if (!ina260.begin(0x45, &Wire))
+  {
+    Serial.println("Couldn't find INA260 chip");
+    while (1)
+      ;
+  }
+  Serial.println("Found INA260 chip");
+  if (!ina3221.begin(0x40, &Wire))
+  { // can use other I2C addresses or buses
+    Serial.println("Failed to find INA3221 chip");
+    while (1)
+      delay(10);
+  }
+  Serial.println("INA3221 Found!");
+  if (!ina3221.begin(0x40, &Wire))
+  { // can use other I2C addresses or buses
+    Serial.println("Failed to find INA3221 chip");
+    while (1)
+      delay(10);
+  }
+  Serial.println("INA3221 Found!");
+
+  ina3221.setAveragingMode(INA3221_AVG_16_SAMPLES);
+
+  // Set shunt resistances for all channels to 0.05 ohms
+  for (uint8_t i = 0; i < 3; i++)
+  {
+    ina3221.setShuntResistance(i, 0.05);
+  }
+
+  // Set a power valid alert to tell us if ALL channels are between the two
+  // limits:
+  ina3221.setPowerValidLimits(3.0 /* lower limit */, 15.0 /* upper limit */);
+}
+
+void currentSensorRead()
+{
+  Serial.print("Current: ");
+  Serial.print(ina260.readCurrent());
+  Serial.println(" mA");
+
+  Serial.print("Bus Voltage: ");
+  Serial.print(ina260.readBusVoltage());
+  Serial.println(" mV");
+
+  Serial.println();
+  for (uint8_t i = 0; i < 3; i++)
+  {
+    float voltage = ina3221.getBusVoltage(i);
+    float current = ina3221.getCurrentAmps(i) * 1000; // Convert to mA
+
+    Serial.print("Channel ");
+    Serial.print(i);
+    Serial.print(": Voltage = ");
+    Serial.print(voltage, 2);
+    Serial.print(" V, Current = ");
+    Serial.print(current, 2);
+    Serial.println(" mA");
+  }
+  Serial.println();
+}
+void currentSensorSendJetson()
+{
+  // INA260：mV → V、mA → A
+  const float ina260Voltage_V =
+      ina260.readBusVoltage() / 1000.0f;
+
+  const float ina260Current_A =
+      ina260.readCurrent() / 1000.0f;
+
+  // INA3221：V、A
+  const float ch0Voltage_V = ina3221.getBusVoltage(0);
+  const float ch0Current_A = ina3221.getCurrentAmps(0);
+
+  const float ch1Voltage_V = ina3221.getBusVoltage(1);
+  const float ch1Current_A = ina3221.getCurrentAmps(1);
+
+  const float ch2Voltage_V = ina3221.getBusVoltage(2);
+  const float ch2Current_A = ina3221.getCurrentAmps(2);
+
+  Serial1.print("PWR");
+  Serial1.print(',');
+
+  Serial1.print(sequenceNumber);
+  Serial1.print(',');
+
+  Serial1.print(millis());
+  Serial1.print(',');
+
+  Serial1.print(ina260Voltage_V, 3);
+  Serial1.print(',');
+  Serial1.print(ina260Current_A, 3);
+  Serial1.print(',');
+
+  Serial1.print(ch0Voltage_V, 3);
+  Serial1.print(',');
+  Serial1.print(ch0Current_A, 3);
+  Serial1.print(',');
+
+  Serial1.print(ch1Voltage_V, 3);
+  Serial1.print(',');
+  Serial1.print(ch1Current_A, 3);
+  Serial1.print(',');
+
+  Serial1.print(ch2Voltage_V, 3);
+  Serial1.print(',');
+  Serial1.print(ch2Current_A, 3);
+
+  Serial1.println();
+
+  sequenceNumber++;
+}
+
 void setup()
 {
   pinModeSetup();
@@ -144,6 +271,7 @@ void setup()
   Serial1.begin(115200, SERIAL_8N1, rxPin, txPin); // シリアル通信の初期化
   pwmSetup();
   servoSetup();
+  currentSensorSetup();
   // attachInterrupt(digitalPinToInterrupt(relayInputPin), handleInterrupt, FALLING);
 }
 
@@ -431,11 +559,8 @@ void debugPrint()
   if (now - previousPrintTime >= 100)
   {
     previousPrintTime = now;
-
-    Serial.print("l2: ");
-    Serial.print(l2);
-    Serial.print(", r2: ");
-    Serial.println(r2);
+    currentSensorRead();
+    currentSensorSendJetson();
   }
 }
 
@@ -452,10 +577,14 @@ void loop()
     digitalWrite(relayOutputPin, HIGH); // 緊急停止解除
   }
   receiveControllerData();
-
+  Serial.println("receiveControllerData");
   slideMotorSetDirection();
+  Serial.println("slideMotorSetDirection");
   slideMotorPulseUpdate();
+  Serial.println("slideMotorPulseUpdate");
 
   servoDrive();
+  Serial.println("servoDrive");
   debugPrint();
+  Serial.println("debugPrint");
 }

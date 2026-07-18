@@ -133,6 +133,17 @@
  C:/Users/sadai/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_hw_support/include/soc/esp32/spiram.h \
  C:/Users/sadai/.platformio/packages/framework-arduinoespressif32/cores/esp32/io_pin_remap.h \
  C:/Users/sadai/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
+ C:/Users/sadai/.platformio/packages/framework-arduinoespressif32/libraries/Wire/src/Wire.h \
+ C:/Users/sadai/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal.h \
  .pio/libdeps/esp32dev/ESP32Servo/src/ESP32Servo.h \
  .pio/libdeps/esp32dev/ESP32Servo/src/ESP32PWM.h \
- C:/Users/sadai/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-ledc.h
+ C:/Users/sadai/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-ledc.h \
+ .pio/libdeps/esp32dev/Adafruit\ INA260\ Library/Adafruit_INA260.h \
+ .pio/libdeps/esp32dev/Adafruit\ BusIO/Adafruit_I2CDevice.h \
+ .pio/libdeps/esp32dev/Adafruit\ BusIO/Adafruit_I2CRegister.h \
+ .pio/libdeps/esp32dev/Adafruit\ BusIO/Adafruit_BusIO_Register.h \
+ .pio/libdeps/esp32dev/Adafruit\ BusIO/Adafruit_GenericDevice.h \
+ .pio/libdeps/esp32dev/Adafruit\ BusIO/Adafruit_SPIDevice.h \
+ C:/Users/sadai/.platformio/packages/framework-arduinoespressif32/libraries/SPI/src/SPI.h \
+ C:/Users/sadai/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-spi.h \
+ .pio/libdeps/esp32dev/Adafruit\ INA3221\ Library/Adafruit_INA3221.h
