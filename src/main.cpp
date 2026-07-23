@@ -559,7 +559,7 @@ void debugPrint()
   if (now - previousPrintTime >= 100)
   {
     previousPrintTime = now;
-    currentSensorRead();
+    // currentSensorRead();
     currentSensorSendJetson();
   }
 }
@@ -577,14 +577,14 @@ void loop()
     digitalWrite(relayOutputPin, HIGH); // 緊急停止解除
   }
   receiveControllerData();
-  Serial.println("receiveControllerData");
+  // Serial.println("receiveControllerData");
   slideMotorSetDirection();
-  Serial.println("slideMotorSetDirection");
+  // Serial.println("slideMotorSetDirection");
   slideMotorPulseUpdate();
-  Serial.println("slideMotorPulseUpdate");
+  // Serial.println("slideMotorPulseUpdate");
 
   servoDrive();
-  Serial.println("servoDrive");
+  // Serial.println("servoDrive");
   debugPrint();
-  Serial.println("debugPrint");
+  // Serial.println("debugPrint");
 }
