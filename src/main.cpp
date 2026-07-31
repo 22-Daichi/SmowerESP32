@@ -78,7 +78,7 @@ uint8_t data;
 
 volatile bool triggered = true;
 
-unsigned long stepHalfPeriod = 3000; // ステッピングモータの半周期時間（マイクロ秒）
+unsigned long stepHalfPeriod = 2500; // ステッピングモータの半周期時間（マイクロ秒）
 unsigned long previousStepTime = 0;  // 最後にステッピングモータをステップさせた時間（マイクロ秒）
 unsigned long currentTime = 0;       // 現在の時間（マイクロ秒）
 bool stepPinState = false;           // ステッピングモータのステップピンの状態
@@ -556,7 +556,7 @@ void debugPrint()
   static unsigned long previousPrintTime = 0;
   unsigned long now = millis();
 
-  if (now - previousPrintTime >= 100)
+  if (now - previousPrintTime >= 100 && rightWheelPwr >= 0 && leftWheelPwr >= 0) // 100msごとに出力
   {
     previousPrintTime = now;
     // currentSensorRead();
