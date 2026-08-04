@@ -371,18 +371,6 @@ void bno055Setup()
   sequenceNumber++;
 } */
 
-void setup()
-{
-  pinModeSetup();
-  Serial.begin(115200);
-  Serial1.begin(115200, SERIAL_8N1, rxPin, txPin); // シリアル通信の初期化
-  pwmSetup();
-  servoSetup();
-  currentSensorSetup();
-  bno055Setup();
-  // attachInterrupt(digitalPinToInterrupt(relayInputPin), handleInterrupt, FALLING);
-}
-
 void liftMotorOn()
 {
   if (cir == 1) // 上昇
@@ -658,19 +646,56 @@ void receiveControllerData()
   slideMotorOn();
 }
 
-void debugPrint()
+// void debugPrint()
+// {
+//   static unsigned long prev = 0;
+//   unsigned long now = millis();
 
+//   if (now - prev >= 100 && rightWheelPwr >= 0 && leftWheelPwr >= 0) // 100msごとに出力
+//   {
+//     prev = now;
+//     // currentSensorRead();
+//     sensorValueSend(Serial);
+//     // bno055Read();
+//   }
+// }
+
+void debugPrintTask(void *_)
 {
-  static unsigned long previousPrintTime = 0;
-  unsigned long now = millis();
-
-  if (now - previousPrintTime >= 100 && rightWheelPwr >= 0 && leftWheelPwr >= 0) // 100msごとに出力
+  while (true)
   {
-    previousPrintTime = now;
-    // currentSensorRead();
-    sensorValueSend(Serial);
-    // bno055Read();
+    auto now = xTaskGetTickCount();
+    // prev = now;
+    if (rightWheelPwr >= 0 && leftWheelPwr >= 0)
+    {
+      // currentSensorRead();
+      sensorValueSend(Serial);
+      // bno055Read();
+    }
+    xTaskDelayUntil(&now, pdMS_TO_TICKS(100)); // 100ms待機ごとになるよう待機
   }
+}
+
+void setup()
+{
+  pinModeSetup();
+  Serial.begin(115200);
+  Serial1.begin(115200, SERIAL_8N1, rxPin, txPin); // シリアル通信の初期化
+  pwmSetup();
+  servoSetup();
+  currentSensorSetup();
+  bno055Setup();
+  // attachInterrupt(digitalPinToInterrupt(relayInputPin), handleInterrupt, FALLING);
+
+  TaskHandle_t debugPrint;
+  (void *)xTaskCreate(
+      debugPrintTask, // タスク関数
+      "DebugPrint",   // タスク名
+      4096,           // スタックサイズ
+      nullptr,        // パラメータ
+      2,              // 優先度
+      &debugPrint     // タスクハンドル
+  );
 }
 
 void loop()
@@ -694,6 +719,6 @@ void loop()
 
   servoDrive();
   // Serial.println("servoDrive");
-  debugPrint();
+  // debugPrint();
   // Serial.println("debugPrint");
 }
