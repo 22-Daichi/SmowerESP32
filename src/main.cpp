@@ -2,8 +2,13 @@
 
 #include <Wire.h>
 #include <ESP32Servo.h>
+// 電流センサのライブラリをインクルード
 #include <Adafruit_INA260.h>
 #include "Adafruit_INA3221.h"
+// BNO055センサーのライブラリをインクルード
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
 
 #define rightPwmCh 2
 #define leftPwmCh 3
@@ -21,6 +26,28 @@ const int SDAPin = 25;
 const int SCLPin = 33;
 Adafruit_INA260 ina260 = Adafruit_INA260();
 Adafruit_INA3221 ina3221;
+Adafruit_BNO055 bnoR = Adafruit_BNO055(1, 0x28, &Wire);
+Adafruit_BNO055 bnoL = Adafruit_BNO055(2, 0x29, &Wire); // J1をショート
+
+sensors_event_t eventR;
+sensors_event_t eventL;
+
+float ch0Voltage_V = 0.0f;
+float ch0Current_A = 0.0f;
+float ch1Voltage_V = 0.0f;
+float ch1Current_A = 0.0f;
+float ch2Voltage_V = 0.0f;
+float ch2Current_A = 0.0f;
+
+float ina260Voltage_V = 0.0f;
+float ina260Current_A = 0.0f;
+
+float bnoR_roll = 0.0f;
+float bnoR_pitch = 0.0f;
+float bnoR_yaw = 0.0f;
+float bnoL_roll = 0.0f;
+float bnoL_pitch = 0.0f;
+float bnoL_yaw = 0.0f;
 
 uint32_t sequenceNumber = 0;
 
@@ -212,57 +239,137 @@ void currentSensorRead()
   }
   Serial.println();
 }
-void currentSensorSendJetson()
+
+void sensorValueSend(Print &output)
 {
   // INA260：mV → V、mA → A
-  const float ina260Voltage_V =
-      ina260.readBusVoltage() / 1000.0f;
-
-  const float ina260Current_A =
-      ina260.readCurrent() / 1000.0f;
+  ina260Voltage_V = ina260.readBusVoltage() / 1000.0f;
+  ina260Current_A = ina260.readCurrent() / 1000.0f;
 
   // INA3221：V、A
-  const float ch0Voltage_V = ina3221.getBusVoltage(0);
-  const float ch0Current_A = ina3221.getCurrentAmps(0);
+  ch0Voltage_V = ina3221.getBusVoltage(0);
+  ch0Current_A = ina3221.getCurrentAmps(0);
 
-  const float ch1Voltage_V = ina3221.getBusVoltage(1);
-  const float ch1Current_A = ina3221.getCurrentAmps(1);
+  ch1Voltage_V = ina3221.getBusVoltage(1);
+  ch1Current_A = ina3221.getCurrentAmps(1);
 
-  const float ch2Voltage_V = ina3221.getBusVoltage(2);
-  const float ch2Current_A = ina3221.getCurrentAmps(2);
+  ch2Voltage_V = ina3221.getBusVoltage(2);
+  ch2Current_A = ina3221.getCurrentAmps(2);
 
-  Serial1.print("PWR");
-  Serial1.print(',');
+  // BNO055
+  bnoR.getEvent(&eventR);
+  bnoL.getEvent(&eventL);
 
-  Serial1.print(sequenceNumber);
-  Serial1.print(',');
+  bnoR_roll = eventR.orientation.x;
+  bnoR_pitch = eventR.orientation.y;
+  bnoR_yaw = eventR.orientation.z;
 
-  Serial1.print(millis());
-  Serial1.print(',');
+  bnoL_roll = eventL.orientation.x;
+  bnoL_pitch = eventL.orientation.y;
+  bnoL_yaw = eventL.orientation.z;
 
-  Serial1.print(ina260Voltage_V, 3);
-  Serial1.print(',');
-  Serial1.print(ina260Current_A, 3);
-  Serial1.print(',');
+  // 送信
+  output.print("Sensor");
+  output.print(',');
 
-  Serial1.print(ch0Voltage_V, 3);
-  Serial1.print(',');
-  Serial1.print(ch0Current_A, 3);
-  Serial1.print(',');
+  output.print(sequenceNumber);
+  output.print(',');
 
-  Serial1.print(ch1Voltage_V, 3);
-  Serial1.print(',');
-  Serial1.print(ch1Current_A, 3);
-  Serial1.print(',');
+  output.print(millis());
+  output.print(',');
 
-  Serial1.print(ch2Voltage_V, 3);
-  Serial1.print(',');
-  Serial1.print(ch2Current_A, 3);
+  output.print(ina260Voltage_V, 3);
+  output.print(',');
+  output.print(ina260Current_A, 3);
+  output.print(',');
 
-  Serial1.println();
+  output.print(ch0Voltage_V, 3);
+  output.print(',');
+  output.print(ch0Current_A, 3);
+  output.print(',');
+
+  output.print(ch1Voltage_V, 3);
+  output.print(',');
+  output.print(ch1Current_A, 3);
+  output.print(',');
+
+  output.print(ch2Voltage_V, 3);
+  output.print(',');
+  output.print(ch2Current_A, 3);
+  output.print(',');
+
+  output.print(bnoR_roll, 3);
+  output.print(',');
+  output.print(bnoR_pitch, 3);
+  output.print(',');
+  output.print(bnoR_yaw, 3);
+  output.print(',');
+
+  output.print(bnoL_roll, 3);
+  output.print(',');
+  output.print(bnoL_pitch, 3);
+  output.print(',');
+  output.print(bnoL_yaw, 3);
+
+  output.println();
 
   sequenceNumber++;
 }
+
+void bno055Setup()
+{
+  if (!bnoR.begin())
+  {
+    /* There was a problem detecting the BNO055 ... check your connections */
+    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    while (1)
+      ;
+  }
+  bnoR.setExtCrystalUse(true);
+
+  if (!bnoL.begin())
+  {
+    /* There was a problem detecting the BNO055 ... check your connections */
+    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    while (1)
+      ;
+  }
+  bnoL.setExtCrystalUse(true);
+}
+
+/* void bno055Read()
+{
+  sensors_event_t eventR;
+  bnoR.getEvent(&eventR);
+
+  sensors_event_t eventL;
+  bnoL.getEvent(&eventL);
+
+  Serial.print("BNO");
+  Serial.print(',');
+  Serial.print(sequenceNumber);
+
+  Serial.print(',');
+  Serial.print(millis());
+  Serial.print(',');
+
+  Serial.print(eventR.orientation.x, 3);
+  Serial.print(',');
+  Serial.print(eventR.orientation.y, 3);
+  Serial.print(',');
+  Serial.print(eventR.orientation.z, 3);
+  Serial.print(',');
+
+  Serial.print(eventL.orientation.x, 3);
+  Serial.print(',');
+  Serial.print(eventL.orientation.y, 3);
+  Serial.print(',');
+  Serial.print(eventL.orientation.z, 3);
+
+  Serial.println();
+
+  sequenceNumber++;
+} */
 
 void setup()
 {
@@ -272,6 +379,7 @@ void setup()
   pwmSetup();
   servoSetup();
   currentSensorSetup();
+  bno055Setup();
   // attachInterrupt(digitalPinToInterrupt(relayInputPin), handleInterrupt, FALLING);
 }
 
@@ -560,7 +668,8 @@ void debugPrint()
   {
     previousPrintTime = now;
     // currentSensorRead();
-    currentSensorSendJetson();
+    sensorValueSend(Serial);
+    // bno055Read();
   }
 }
 
