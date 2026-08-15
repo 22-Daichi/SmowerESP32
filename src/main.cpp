@@ -49,6 +49,9 @@ float bnoL_roll = 0.0f;
 float bnoL_pitch = 0.0f;
 float bnoL_yaw = 0.0f;
 
+float bnoR_pitch_offset = 2.938; // 実測値諸説あり
+float bnoL_pitch_offset = 0.812; // 実測値諸説あり
+
 uint32_t sequenceNumber = 0;
 
 const int relayInputPin = 15; // 入力ピン（pullvdown）
@@ -669,7 +672,7 @@ void debugPrintTask(void *_)
     if (rightWheelPwr >= 0 && leftWheelPwr >= 0)
     {
       // currentSensorRead();
-      sensorValueSend(Serial);
+      sensorValueSend(Serial1);
       // bno055Read();
     }
     xTaskDelayUntil(&now, pdMS_TO_TICKS(100)); // 100ms待機ごとになるよう待機
