@@ -49,8 +49,8 @@ float bnoL_roll = 0.0f;
 float bnoL_pitch = 0.0f;
 float bnoL_yaw = 0.0f;
 
-float bnoR_pitch_offset = 2.938; // 実測値諸説あり
-float bnoL_pitch_offset = 0.812; // 実測値諸説あり
+float bnoR_pitch_offset;
+float bnoL_pitch_offset;
 
 uint32_t sequenceNumber = 0;
 
@@ -264,11 +264,11 @@ void sensorValueSend(Print &output)
   bnoL.getEvent(&eventL);
 
   bnoR_roll = eventR.orientation.x;
-  bnoR_pitch = eventR.orientation.y;
+  bnoR_pitch = eventR.orientation.y - bnoR_pitch_offset; // ピッチオフセットを適用
   bnoR_yaw = eventR.orientation.z;
 
   bnoL_roll = eventL.orientation.x;
-  bnoL_pitch = eventL.orientation.y;
+  bnoL_pitch = eventL.orientation.y - bnoL_pitch_offset; // ピッチオフセットを適用
   bnoL_yaw = eventL.orientation.z;
 
   // 送信
@@ -663,6 +663,22 @@ void receiveControllerData()
 //   }
 // }
 
+void bnoPitchOffsetCalibrate()
+{ // BNO055のピッチオフセットをキャリブレーションする関数
+  float bnoR_pitch_sum = 0.0;
+  float bnoL_pitch_sum = 0.0;
+  for (int i = 0; i < 50; i++)
+  {
+    bnoR.getEvent(&eventR);
+    bnoL.getEvent(&eventL);
+    bnoR_pitch_sum += eventR.orientation.y;
+    bnoL_pitch_sum += eventL.orientation.y;
+    delay(100);
+  }
+  bnoR_pitch_offset = bnoR_pitch_sum / 50;
+  bnoL_pitch_offset = bnoL_pitch_sum / 50;
+}
+
 void debugPrintTask(void *_)
 {
   while (true)
@@ -672,7 +688,7 @@ void debugPrintTask(void *_)
     if (rightWheelPwr >= 0 && leftWheelPwr >= 0)
     {
       // currentSensorRead();
-      sensorValueSend(Serial1);
+      sensorValueSend(Serial);
       // bno055Read();
     }
     xTaskDelayUntil(&now, pdMS_TO_TICKS(100)); // 100ms待機ごとになるよう待機
@@ -689,6 +705,7 @@ void setup()
   currentSensorSetup();
   bno055Setup();
   // attachInterrupt(digitalPinToInterrupt(relayInputPin), handleInterrupt, FALLING);
+  bnoPitchOffsetCalibrate(); // BNO055のピッチオフセットをキャリブレーション
 
   TaskHandle_t debugPrint;
   (void *)xTaskCreate(
